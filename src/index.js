@@ -11,4 +11,5 @@ const logger = new winston.Logger()
     level: process.env.NODE_ENV === 'production' ? 'info' : 'debug'
   })
 
+logger.debug(`Token: ${process.env.SLACK_BOT_TOKEN}`)
 logger.info('Hello world!')
