@@ -1,0 +1,32 @@
+---
+extends: airbnb-base
+parser: babel-eslint
+parserOptions:
+  ecmaFeatures:
+    jsx: true
+  ecmaVersion: 7
+  sourceType: module
+rules:
+  class-methods-use-this: off
+  comma-dangle:
+    - warn
+    - only-multiline
+  consistent-return: off
+  global-require: warn
+  import/no-extraneous-dependencies:
+    - warn
+    - devDependencies: false
+  no-param-reassign:
+    - warn
+    - props: false
+  no-trailing-spaces:
+    - warn
+    - skipBlankLines: true
+  no-underscore-dangle:
+    - error
+    - allow:
+        - _id
+  padded-blocks: off
+  semi:
+    - error
+    - never
