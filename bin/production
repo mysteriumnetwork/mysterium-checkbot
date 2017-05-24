@@ -1,2 +1,2 @@
 require('dotenv/config')
-require('../dist/bot')
+require('../dist/bot/index')

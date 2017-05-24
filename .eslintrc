@@ -19,6 +19,7 @@ rules:
   no-param-reassign:
     - warn
     - props: false
+  no-restricted-syntax: off
   no-trailing-spaces:
     - warn
     - skipBlankLines: true
