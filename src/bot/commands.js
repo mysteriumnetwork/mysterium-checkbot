@@ -6,7 +6,8 @@ import uniq from 'lodash/uniq'
 import { getContainerLogs, parseWanIP, redactIPAddress } from './helpers'
 import {
   HELP_TEXT,
-  MULTI_NODE_SUMMARY_MESSAGE,
+  MULTI_NODE_SUCCESS_SUMMARY,
+  MULTI_NODE_WARNING_SUMMARY,
   NODE_AVAILABLE_SUMMARY,
   NODE_AVAILABLE_MESSAGE,
   NODE_UNREACHABLE_SUMMARY,
@@ -178,7 +179,10 @@ export async function performMultiNodeCheck(ctx, nodes) {
 
     // Format the summaries and send to the user
     const formattedSummaries = summaries.map(summary => `> • ${summary}`)
-    const message = util.format(MULTI_NODE_SUMMARY_MESSAGE, user.id, formattedSummaries.join('\n'))
+    const headerMessage = results.every(r => r.StatusCode === 0)
+      ? MULTI_NODE_SUCCESS_SUMMARY
+      : MULTI_NODE_WARNING_SUMMARY
+    const message = util.format(headerMessage, user.id, formattedSummaries.join('\n'))
     client.sendMessage(message, channel.id)
 
   } catch (err) {
