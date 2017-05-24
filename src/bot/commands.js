@@ -1,92 +1,44 @@
 import util from 'util'
+
 import Docker from 'dockerode'
+import uniq from 'lodash/uniq'
 
 import { getContainerLogs, parseWanIP, redactIPAddress } from './helpers'
+import {
+  HELP_TEXT,
+  MULTI_NODE_SUMMARY_MESSAGE,
+  NODE_AVAILABLE_SUMMARY,
+  NODE_AVAILABLE_MESSAGE,
+  NODE_UNREACHABLE_SUMMARY,
+  NODE_UNREACHABLE_MESSAGE,
+  NODE_TUNNEL_FAILED_SUMMARY,
+  NODE_TUNNEL_FAILED_MESSAGE,
+  NODE_NO_INTERNET_ACCESS_SUMMARY,
+  NODE_NO_INTERNET_ACCESS_MESSAGE,
+  NODE_CONNECTION_TIMEOUT_SUMMARY,
+  NODE_CONNECTION_TIMEOUT_MESSAGE,
+  NODE_DEFAULT_ERROR_SUMMARY,
+  NODE_DEFAULT_ERROR_MESSAGE,
+  UNEXPECTED_ERROR_MESSAGE
+} from './strings'
 
+const NODE_KEY_REGEX = /^[0-9a-z-_]{1,16}$/i
 const GOOGLE_DNS_SERVERS = ['8.8.8.8', '8.8.4.4']
 const CAPABILITY_NET_ADMIN = 'NET_ADMIN'
-const TIMEOUT_SEC = 20
+const TIMEOUT_SEC = parseInt(process.env.TIMEOUT_SECONDS, 10) || 30
 
-const HELP_TEXT = `
-*Available commands:*
-> \`!check <node>\` - Checks the availability of a Mysterium node
-> \`!help\` - Shows this help text
-`
-const NODE_AVAILABLE_MESSAGE = `
-<@%s>: :white_check_mark: Node \`%s\` is available and has internet access. (\`%s\`)
-`
+async function checkNodeAvailability(nodeKey) {
+  const docker = new Docker()
+  let container
 
-const NODE_UNREACHABLE_MESSAGE = `
-<@%s>: :x: Node \`%s\` is not reachable.
-*Suggestions:*
-> • Check that the node key is correct.
-> • Check that the public IP address is correct.
-> • Check that \`mysterium-node\` is running.
-> • Check that inbound traffic on port \`1194\` is forwarded to the node.
-`
-
-const NODE_TUNNEL_FAILED_MESSAGE = `
-<@%s>: :x: Node \`%s\` failed to initialize VPN session.
-*Suggestions:*
-> • Check that the node key is correct.
-> • Check that the public IP address is correct.
-> • Check that you are running the latest version of \`mysterium-node\`.
-> • Check that inbound traffic on port \`1194\` is forwarded to the node.
-`
-
-const NODE_NO_INTERNET_ACCESS_MESSAGE = `
-<@%s>: :x: Node \`%s\` was unable to access the internet.
-*Suggestions:*
-> • Check that the node key is correct.
-> • Check that the public IP address is correct.
-> • Check that you are running the latest version of \`mysterium-node\`.
-> • Check that the node has a working internet connection.
-> • Check that IP forwarding is enabled on the node.
-> • Check that \`iptables\` NAT rules allow routing to the internet.
-`
-
-const NODE_CONNECTION_TIMEOUT_MESSAGE = `
-<@%s>: :x: Node \`%s\` timed out trying to access the internet after %d seconds.
-*Suggestions:*
-> • Check that the node key is correct.
-> • Check that the public IP address is correct.
-> • Check that you are running the latest version of \`mysterium-node\`.
-> • Check that the node has a responsive internet connection.
-> • Check that IP forwarding is enabled on the node.
-> • Check that \`iptables\` NAT rules allow routing to the internet.
-`
-
-const NODE_DEFAULT_ERROR_MESSAGE = `
-<@%s>: :x: Node \`%s\` failed with exit code %d.
-*Suggestions:*
-> • Check that the node key is correct.
-> • Check that the public IP address is correct.
-> • Check that you are running the latest version of \`mysterium-node\`.
-> • Try the request again.
-`
-
-const UNEXPECTED_ERROR_MESSAGE = `
-<@%s>: :scream: Sorry, an unexpected error occurred while processing your request.
-*Suggestions:*
-> • Try the request again.
-`
-
-export async function performNodeCheck(ctx, nodeKey) {
-  const { client, user, channel, logger } = ctx
-  logger.debug(`${user.name} requested a node check for '${nodeKey}'.`)
-
-  // Notify user the node check will begin soon
-  client.sendMessage(`<@${user.id}>: :hourglass: Checking the availability of node \`${nodeKey}\`...`, channel.id)
-
-  let container = null
-
+  // Run the docker container
   try {
-    const docker = new Docker()
-
-    // Run the docker container
     container = await docker.run(process.env.CLIENT_IMAGE_NAME, null, null, {
       Tty: true,
-      Env: [`NODE=${nodeKey}`],
+      Env: [
+        `NODE=${nodeKey}`,
+        `TIMEOUT=${TIMEOUT_SEC}`
+      ],
       HostConfig: {
         Dns: GOOGLE_DNS_SERVERS,
         CapAdd: CAPABILITY_NET_ADMIN,
@@ -99,11 +51,32 @@ export async function performNodeCheck(ctx, nodeKey) {
     const logs = await getContainerLogs(container)
     const wanIPAddress = await parseWanIP(logs)
 
+    // Return the exit code and WAN IP adddress (on success)
+    return { nodeKey, exitCode, wanIPAddress }
+  } finally {
+    // Make sure to remove the container
+    if (container) {
+      await container.remove()
+    }
+  }
+}
+
+export async function performNodeCheck(ctx, node) {
+  const { client, user, channel, logger } = ctx
+  const nodeKey = node.toLowerCase().trim()
+
+  // Notify user the node check will begin soon
+  logger.debug(`${user.name} requested a node check for '${nodeKey}'.`)
+  client.sendMessage(`<@${user.id}>: :hourglass: Checking the availability of node \`${nodeKey}\`...`, channel.id)
+
+  try {
+    const result = await checkNodeAvailability(nodeKey)
+
     // Based on the exit code, notify the user
-    switch (exitCode) {
+    switch (result.exitCode) {
       // Report success and a redacted version of the WAN IP address
       case 0: {
-        const redactedIPAddress = redactIPAddress(wanIPAddress)
+        const redactedIPAddress = redactIPAddress(result.wanIPAddress)
         const message = util.format(NODE_AVAILABLE_MESSAGE, user.id, nodeKey, redactedIPAddress)
         client.sendMessage(message, channel.id)
         break
@@ -135,21 +108,84 @@ export async function performNodeCheck(ctx, nodeKey) {
       }
       // Exit code ? - Other errors
       default: {
-        const message = util.format(NODE_DEFAULT_ERROR_MESSAGE, user.id, nodeKey, exitCode)
+        const message = util.format(NODE_DEFAULT_ERROR_MESSAGE, user.id, nodeKey, result.exitCode)
         client.sendMessage(message, channel.id)
         break
       }
     }
   } catch (err) {
     // Report error to the chat
-    logger.error('Unable to run docker container:', err)
-    const message = util.format(UNEXPECTED_ERROR_MESSAGE, user.id)
+    logger.error('Unable to perform node check:', err)
+    const message = util.format(UNEXPECTED_ERROR_MESSAGE, user.id, err.message)
     client.sendMessage(message, channel.id)
-  } finally {
-    // Cleanup the docker container
-    if (container) {
-      await container.remove()
-    }
+  }
+}
+
+export async function performMultiNodeCheck(ctx, nodes) {
+  const { client, user, channel, logger } = ctx
+  let nodeKeys = nodes.split(/,|\s/i)
+    .map(nodeKey => nodeKey.toLowerCase().trim())
+    .filter(nodeKey => NODE_KEY_REGEX.test(nodeKey))
+
+  // De-dupe any keys
+  nodeKeys = uniq(nodeKeys)
+
+  // If no valid nodes, abort with error
+  if (!nodeKeys.length) {
+    return client.sendMessage(`<@${user.id}>: :thinking_face: No valid node names were found.`, channel.id)
+  }
+
+  // If only a single node is requested, fallback to using single node lookup instead
+  if (nodeKeys.length === 1) {
+    return performNodeCheck(ctx, nodeKeys[0])
+  }
+
+  // If more than 5 unique nodes, abort with error
+  if (nodeKeys.length > 5) {
+    return client.sendMessage(`<@${user.id}>: :sweat_smile: Sorry, multiple node checking is limited to 5 nodes per request.`, channel.id)
+  }
+
+  // Notify user the multi-node check will begin soon
+  logger.debug(`${user.name} requested a multi-node check for ${JSON.stringify(nodeKeys)}.`)
+  const formattedNodeKeys = nodeKeys.map(key => `\`${key}\``)
+  client.sendMessage(`<@${user.id}>: :hourglass: Checking the availability of nodes [${formattedNodeKeys.join(' ')}]...`, channel.id)
+
+  try {
+    // Perform all node checks concurrently and wait for results
+    const nodeChecks = nodeKeys.map(key => checkNodeAvailability(key))
+    const results = await Promise.all(nodeChecks)
+
+    // Map results to intelligible summaries
+    const summaries = results.map((result) => {
+      switch (result.exitCode) {
+        case 0: {
+          const redactedIPAddress = redactIPAddress(result.wanIPAddress)
+          return util.format(NODE_AVAILABLE_SUMMARY, result.nodeKey, redactedIPAddress)
+        }
+        case 1:
+          return util.format(NODE_UNREACHABLE_SUMMARY, result.nodeKey)
+        case 2:
+          return util.format(NODE_TUNNEL_FAILED_SUMMARY, result.nodeKey)
+        case 3:
+        case 7:
+          return util.format(NODE_NO_INTERNET_ACCESS_SUMMARY, result.nodeKey)
+        case 28:
+          return util.format(NODE_CONNECTION_TIMEOUT_SUMMARY, result.nodeKey, TIMEOUT_SEC)
+        default:
+          return util.format(NODE_DEFAULT_ERROR_SUMMARY, result.nodeKey, result.exitCode)
+      }
+    })
+
+    // Format the summaries and send to the user
+    const formattedSummaries = summaries.map(summary => `> • ${summary}`)
+    const message = util.format(MULTI_NODE_SUMMARY_MESSAGE, user.id, formattedSummaries.join('\n'))
+    client.sendMessage(message, channel.id)
+
+  } catch (err) {
+    // Report error to the chat
+    logger.error('Unable to perform multi-node check:', err)
+    const message = util.format(UNEXPECTED_ERROR_MESSAGE, user.id, err.message)
+    client.sendMessage(message, channel.id)
   }
 }
 

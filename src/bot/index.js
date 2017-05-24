@@ -3,10 +3,11 @@ import { RtmClient, MemoryDataStore, CLIENT_EVENTS, RTM_EVENTS } from '@slack/cl
 import winston from 'winston'
 
 import CommandRouter from './router'
-import { performNodeCheck, showHelpText } from './commands'
+import { performMultiNodeCheck, performNodeCheck, showHelpText } from './commands'
 
 const TIMESTAMP_FORMAT = 'HH:mm:ss.SSS'
-const REQUEST_NODE_CHECK_REGEX = /^!check\s+([a-z0-9-_]+)/i
+const REQUEST_NODE_CHECK_REGEX = /^!check\s+([a-z0-9-_]{1,16})/i
+const REQUEST_MULTI_NODE_CHECK_REGEX = /^!check\s+([a-z0-9-_,\s]+)/i
 const REQUEST_HELP_REGEX = /^!help/i
 
 // Initialize the logger instance
@@ -31,6 +32,7 @@ const rtm = new RtmClient(botToken, {
 
 // Create command router
 const router = new CommandRouter(rtm, logger)
+router.addHandler(REQUEST_MULTI_NODE_CHECK_REGEX, performMultiNodeCheck)
 router.addHandler(REQUEST_NODE_CHECK_REGEX, performNodeCheck)
 router.addHandler(REQUEST_HELP_REGEX, showHelpText)
 
