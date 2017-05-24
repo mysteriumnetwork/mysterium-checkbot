@@ -20,6 +20,10 @@ Once that image is built, you can must configure the bot (see below section) usi
 
 After you have configured the bot, you can run it:
 
+> `npm install`
+
+Then
+
 > `npm start` (development)  
 *or*  
 > `npm run production`  
