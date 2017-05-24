@@ -2,7 +2,7 @@
 Slack Bot that checks Mysterium node availability upon user requests.
 
 **Supported commands:**
-> `!check <node>` - Checks the availability of a Mysterium node  
+> `!check <nodes ...>` - Checks the availability of a Mysterium node (or multiple nodes)  
 > `!help` - Shows the help text
 
 ### Requirements
@@ -35,6 +35,7 @@ The `.env` file has several important parameters:
 > `SLACK_BOT_TOKEN` - The API token for the Slack bot  
 > `SLACK_BOT_CHANNEL` - Comma-seperated values of channel names to monitor for requests  
 > `CLIENT_IMAGE_NAME` - Name of the docker image to launch (default should be `mysterium-client`)  
+> `TIMEOUT_SECONDS` - Number of seconds before an internet check will timeout (default should be `30`)
 
 ### Methodology
 
