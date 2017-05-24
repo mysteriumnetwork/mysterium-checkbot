@@ -13,7 +13,7 @@ const HELP_TEXT = `
 > \`!help\` - Shows this help text
 `
 const NODE_AVAILABLE_MESSAGE = `
-<@%s>: :white_check_mark: Node \`%s\` is available and has internet access. (\`%s\`).
+<@%s>: :white_check_mark: Node \`%s\` is available and has internet access. (\`%s\`)
 `
 
 const NODE_UNREACHABLE_MESSAGE = `
