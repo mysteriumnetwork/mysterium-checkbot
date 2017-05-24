@@ -18,7 +18,7 @@ The bot requires the accompanying `mysterium-client` Docker image to be build pr
 
 Once that image is built, you can must configure the bot (see below section) using the `.env` file (see `.env.example` as a template).
 
-Once you have configured the bot, you can run it:
+After you have configured the bot, you can run it:
 
 > `npm start` (development)  
 *or*  
