@@ -1,0 +1,38 @@
+# This dockerfile is for the node check job
+FROM debian:jessie-slim
+MAINTAINER Erik Rogers <erik.rogers@live.com>
+
+# Mysterium package info
+ENV MYSTERIUM_VERSION 0.0.6
+ENV MYSTERIUM_PACKAGE mysterium-client_linux_amd64
+ENV MYSTERIUM_DEB ${MYSTERIUM_PACKAGE}.deb
+
+# Mysterium release info
+ENV MYSTERIUM_DIST https://github.com/MysteriumNetwork/node/releases/download
+ENV MYSTERIUM_RELEASE ${MYSTERIUM_DIST}/${MYSTERIUM_VERSION}/${MYSTERIUM_DEB}
+
+# Mysterium runtime info
+ENV MYSTERIUM_DIR /etc/mysterium-client
+
+# Install necessary dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  openssl \
+  openvpn \
+  iptables \
+  ca-certificates \
+  curl \
+  wget \
+  && rm -rf /var/cache/apk/*
+
+# Download and install mysterium client
+RUN wget ${MYSTERIUM_RELEASE} \
+  && dpkg --force-depends --install ${MYSTERIUM_DEB} \
+  && rm ${MYSTERIUM_DEB} \
+  && mkdir -p ${MYSTERIUM_DIR}
+
+# Copy shell script
+COPY ["node-check.sh", "${MYSTERIUM_DIR}/node-check.sh"]
+RUN chmod +x ${MYSTERIUM_DIR}/node-check.sh
+
+# Make runtime folder
+# ENTRYPOINT ["/usr/bin/node-check.sh"]
