@@ -31,8 +31,9 @@ RUN wget ${MYSTERIUM_RELEASE} \
   && mkdir -p ${MYSTERIUM_DIR}
 
 # Copy shell script
-COPY ["node-check.sh", "${MYSTERIUM_DIR}/node-check.sh"]
+COPY ["./src/client/node-check.sh", "${MYSTERIUM_DIR}/node-check.sh"]
 RUN chmod +x ${MYSTERIUM_DIR}/node-check.sh
 
 # Make runtime folder
-# ENTRYPOINT ["/usr/bin/node-check.sh"]
+WORKDIR $MYSTERIUM_DIR
+ENTRYPOINT ["./node-check.sh"]

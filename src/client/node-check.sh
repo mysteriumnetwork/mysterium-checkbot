@@ -49,7 +49,7 @@ fi
 # Tunnel is good, try to make basic curl request
 echo Successfully connected to node \'$NODE\'.
 echo Checking internet access...
-RESPONSE=$(curl -s --max-time 10 -L ipconfig.me)
+RESPONSE=$(curl -s --max-time 15 -L ipconfig.me)
 
 # Verify we were able to get a WAN IP
 STATUS=$?; if [ $STATUS != 0 ]; then
@@ -58,5 +58,6 @@ STATUS=$?; if [ $STATUS != 0 ]; then
 fi
 
 # Success!
-echo Successfully routed through node \'$NODE\' as $RESPONSE.
+echo Successfully routed through node \'$NODE\'.
+echo WAN IP: $RESPONSE
 exit 0
