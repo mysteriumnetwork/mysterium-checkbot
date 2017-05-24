@@ -12,11 +12,11 @@ Slack Bot that checks Mysterium node availability upon user requests.
 
 ### Getting Started
 
-The bot requires the accompanying `mysterium-client` Docker image to be build prior to running:
+The bot requires the accompanying `mysterium-client` Docker image to be built prior to running:
 
 > `docker build --tag mysterium-client -f Dockerfile-client .`
 
-Once that image is built, you can must configure the bot (see below section) using the `.env` file (see `.env.example` as a template).
+Once that image is built, you must first configure the bot (see below section) using the `.env` file (see `.env.example` as a template).
 
 After you have configured the bot, you can run it:
 
