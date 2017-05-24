@@ -21,7 +21,7 @@ const logger = new winston.Logger()
 
 // Get bot parameters from environment vars
 const botToken = process.env.SLACK_BOT_TOKEN || ''
-const botChannel = process.env.SLACK_BOT_CHANNEL || ''
+const botChannels = (process.env.SLACK_BOT_CHANNEL || '').split(',')
 
 // Create the RTM client (using in-memory datastore)
 const rtm = new RtmClient(botToken, {
@@ -39,9 +39,10 @@ rtm.on(CLIENT_EVENTS.RTM.AUTHENTICATED, (startData) => {
   logger.info(`Connected to Slack successfully. (${startData.team.name})`)
   const memberChannels = startData.channels.filter(ch => ch.is_member)
 
-  // Check that the bot is a member of the channel he wants to monitor
-  if (!memberChannels.some(ch => ch.name === botChannel)) {
-    logger.warn(`Bot is not a member of channel #${botChannel}!`)
+  for (const channel of memberChannels) {
+    if (botChannels.indexOf(channel.name) !== -1) {
+      logger.info(`Monitoring channel #${channel.name} for requests...`)
+    }
   }
 })
 
@@ -50,8 +51,8 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
   const user = rtm.dataStore.getUserById(message.user)
   const channel = rtm.dataStore.getChannelGroupOrDMById(message.channel)
 
-  // Ignore if there is no user, no channel, or not the channel the bot is monitoring
-  if (!user || !channel || channel.name !== botChannel) {
+  // Ignore if there is no user, no channel, or not a channel the bot is monitoring
+  if (!user || !channel || botChannels.indexOf(channel.name) === -1) {
     return
   }
 
