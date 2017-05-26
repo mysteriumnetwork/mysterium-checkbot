@@ -24,11 +24,14 @@ import {
 } from './strings'
 
 const NODE_KEY_REGEX = /^[0-9a-z-_]{1,16}$/i
+
 const GOOGLE_DNS_SERVERS = ['8.8.8.8', '8.8.4.4']
 const CAPABILITY_NET_ADMIN = 'NET_ADMIN'
+
 const TIMEOUT_SEC = parseInt(process.env.TIMEOUT_SECONDS, 10) || 30
 
 async function checkNodeAvailability(nodeKey) {
+  // Assumes that the docker socket file is available (/var/run/docker.sock)
   const docker = new Docker()
   let container
 
@@ -46,14 +49,20 @@ async function checkNodeAvailability(nodeKey) {
       }
     })
 
-    // Wait for the container to finish and get the exit code, logs, and WAN IP
+    // Wait for the container and inspect it to calculate elapsed time
     await container.wait()
+    const data = await container.inspect()
+    const startDate = Date.parse(data.State.StartedAt)
+    const finishDate = Date.parse(data.State.FinishedAt)
+    const elapsedMilliseconds = finishDate - startDate
+
+    // Get the exit code, logs, and WAN IP
     const exitCode = container.output.StatusCode
     const logs = await getContainerLogs(container)
     const wanIPAddress = await parseWanIP(logs)
 
     // Return the exit code and WAN IP adddress (on success)
-    return { nodeKey, exitCode, wanIPAddress }
+    return { nodeKey, exitCode, wanIPAddress, elapsedMilliseconds }
   } finally {
     // Make sure to remove the container
     if (container) {
@@ -67,52 +76,60 @@ export async function performNodeCheck(ctx, node) {
   const nodeKey = node.toLowerCase().trim()
 
   // Notify user the node check will begin soon
-  logger.debug(`${user.name} requested a node check for '${nodeKey}'.`)
+  logger.info(`${user.name} initiated a single node check for '${nodeKey}'.`)
   client.sendMessage(`<@${user.id}>: :hourglass: Checking the availability of node \`${nodeKey}\`...`, channel.id)
 
   try {
     const result = await checkNodeAvailability(nodeKey)
+    const elapsedSeconds = (result.elapsedMilliseconds / 1000.0).toFixed(2)
+
+    if (result.exitCode) {
+      logger.info(`Node '${result.nodeKey}' failed (code ${result.StatusCode}) after ${elapsedSeconds} seconds.`)
+    } else {
+      logger.info(`Node '${result.nodeKey}' verified as ${result.wanIPAddress} in ${elapsedSeconds} seconds.`)
+    }
+
+    let message = ''
 
     // Based on the exit code, notify the user
     switch (result.exitCode) {
       // Report success and a redacted version of the WAN IP address
       case 0: {
         const redactedIPAddress = redactIPAddress(result.wanIPAddress)
-        const message = util.format(NODE_AVAILABLE_MESSAGE, user.id, nodeKey, redactedIPAddress)
-        client.sendMessage(message, channel.id)
+        message = util.format(NODE_AVAILABLE_MESSAGE, user.id, nodeKey, redactedIPAddress)
         break
       }
       // Exit code 1 - Unable to establish mysterium client connection
       case 1: {
-        const message = util.format(NODE_UNREACHABLE_MESSAGE, user.id, nodeKey)
-        client.sendMessage(message, channel.id)
+        message = util.format(NODE_UNREACHABLE_MESSAGE, user.id, nodeKey)
         break
       }
       // Exit code 2 - Unable to create VPN tunnel session
       case 2: {
-        const message = util.format(NODE_TUNNEL_FAILED_MESSAGE, user.id, nodeKey)
-        client.sendMessage(message, channel.id)
+        message = util.format(NODE_TUNNEL_FAILED_MESSAGE, user.id, nodeKey)
         break
       }
       // Exit code 3 or 7 - No WAN or cURL connect failure
       case 3:
       case 7: {
-        const message = util.format(NODE_NO_INTERNET_ACCESS_MESSAGE, user.id, nodeKey)
-        client.sendMessage(message, channel.id)
+        message = util.format(NODE_NO_INTERNET_ACCESS_MESSAGE, user.id, nodeKey)
         break
       }
       // Exit code 28 - cURL timeout
       case 28: {
-        const message = util.format(NODE_CONNECTION_TIMEOUT_MESSAGE, user.id, nodeKey, TIMEOUT_SEC)
-        client.sendMessage(message, channel.id)
+        message = util.format(NODE_CONNECTION_TIMEOUT_MESSAGE, user.id, nodeKey, TIMEOUT_SEC)
         break
       }
       // Exit code ? - Other errors
       default: {
-        const message = util.format(NODE_DEFAULT_ERROR_MESSAGE, user.id, nodeKey, result.exitCode)
-        client.sendMessage(message, channel.id)
+        message = util.format(NODE_DEFAULT_ERROR_MESSAGE, user.id, nodeKey, result.exitCode)
         break
       }
+    }
+
+    // Send message to user
+    if (message) {
+      client.sendMessage(message, channel.id)
     }
   } catch (err) {
     // Report error to the chat
@@ -147,7 +164,7 @@ export async function performMultiNodeCheck(ctx, nodes) {
   }
 
   // Notify user the multi-node check will begin soon
-  logger.debug(`${user.name} requested a multi-node check for ${JSON.stringify(nodeKeys)}.`)
+  logger.info(`${user.name} initiated a multi-node check for ${JSON.stringify(nodeKeys)}.`)
   const formattedNodeKeys = nodeKeys.map(key => `\`${key}\``)
   client.sendMessage(`<@${user.id}>: :hourglass: Checking the availability of nodes [${formattedNodeKeys.join(' ')}]...`, channel.id)
 
@@ -158,6 +175,13 @@ export async function performMultiNodeCheck(ctx, nodes) {
 
     // Map results to intelligible summaries
     const summaries = results.map((result) => {
+      const elapsedSeconds = (result.elapsedMilliseconds / 1000.0).toFixed(2)
+      if (result.exitCode) {
+        logger.info(`Node '${result.nodeKey}' failed (${result.StatusCode}) after ${elapsedSeconds} seconds.`)
+      } else {
+        logger.info(`Node '${result.odeKey}' verified as ${result.wanIPAddress} in ${elapsedSeconds} seconds.`)
+      }
+
       switch (result.exitCode) {
         case 0: {
           const redactedIPAddress = redactIPAddress(result.wanIPAddress)
@@ -195,7 +219,7 @@ export async function performMultiNodeCheck(ctx, nodes) {
 
 export async function showHelpText(ctx) {
   const { client, user, channel, logger } = ctx
-  logger.debug(`${user.name} requested help text.`)
+  logger.info(`${user.name} requested help text.`)
 
   // Send help text to chat
   client.sendMessage(HELP_TEXT, channel.id)

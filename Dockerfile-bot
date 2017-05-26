@@ -1,0 +1,22 @@
+# This dockerfile is for the Slack bot
+FROM node:7-slim
+MAINTAINER Erik Rogers <erik.rogers@live.com>
+
+# Install necessary dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  && rm -rf /var/cache/apk/*
+
+# Create app directory
+RUN mkdir -p /usr/app
+WORKDIR /usr/src/app
+
+# Install app dependencies
+COPY package.json /usr/src/app
+RUN npm install production
+
+# Copy source code
+COPY . /usr/src/app
+
+# Run the application
+CMD [ "npm", "run", "production"]

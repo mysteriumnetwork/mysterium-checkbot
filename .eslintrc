@@ -16,6 +16,9 @@ rules:
   import/no-extraneous-dependencies:
     - warn
     - devDependencies: false
+  max-len:
+    - warn
+    - code: 100
   no-param-reassign:
     - warn
     - props: false
