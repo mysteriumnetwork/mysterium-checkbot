@@ -86,7 +86,7 @@ export async function performNodeCheck(ctx, node) {
     const elapsedSeconds = (result.elapsedMilliseconds / 1000.0).toFixed(2)
 
     if (result.exitCode) {
-      logger.info(`Node '${result.nodeKey}' failed (code ${result.StatusCode}) after ${elapsedSeconds} seconds.`)
+      logger.info(`Node '${result.nodeKey}' failed (code ${result.exitCode}) after ${elapsedSeconds} seconds.`)
     } else {
       logger.info(`Node '${result.nodeKey}' verified as ${result.wanIPAddress} in ${elapsedSeconds} seconds.`)
     }
@@ -179,7 +179,7 @@ export async function performMultiNodeCheck(ctx, nodes) {
     const summaries = results.map((result) => {
       const elapsedSeconds = (result.elapsedMilliseconds / 1000.0).toFixed(2)
       if (result.exitCode) {
-        logger.info(`Node '${result.nodeKey}' failed (${result.StatusCode}) after ${elapsedSeconds} seconds.`)
+        logger.info(`Node '${result.nodeKey}' failed (${result.exitCode}) after ${elapsedSeconds} seconds.`)
       } else {
         logger.info(`Node '${result.odeKey}' verified as ${result.wanIPAddress} in ${elapsedSeconds} seconds.`)
       }
