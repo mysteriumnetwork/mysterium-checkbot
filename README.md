@@ -29,7 +29,7 @@ Once the images are built, you can run the `mysterium-checkbot` image.
 ### Environment Variables
 
 > `SLACK_BOT_TOKEN` - (required) The API token for the Slack bot  
-> `SLACK_BOT_CHANNELS` - (optional) Comma-seperated values of channel names to monitor for requests  (default is `*` for all channels)  
+> `SLACK_BOT_CHANNELS` - (optional) Comma-seperated values of channel names to monitor (default is `*` for all)  
 > `CLIENT_IMAGE_NAME` - (optional) Name of the docker image to launch (default should be `mysterium-client`)  
 > `TIMEOUT_SECONDS` - (optional) Number of seconds before an internet check will timeout (default should be `30`)
 
