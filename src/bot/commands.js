@@ -25,6 +25,7 @@ import {
 
 const NODE_KEY_REGEX = /^[0-9a-z-_]{1,16}$/i
 
+const DEFAULT_IMAGE_NAME = 'mysterium-client'
 const GOOGLE_DNS_SERVERS = ['8.8.8.8', '8.8.4.4']
 const CAPABILITY_NET_ADMIN = 'NET_ADMIN'
 
@@ -37,7 +38,8 @@ async function checkNodeAvailability(nodeKey) {
 
   // Run the docker container
   try {
-    container = await docker.run(process.env.CLIENT_IMAGE_NAME, null, null, {
+    const imageName = process.env.CLIENT_IMAGE_NAME || DEFAULT_IMAGE_NAME
+    container = await docker.run(imageName, null, null, {
       Tty: true,
       Env: [
         `NODE=${nodeKey}`,
