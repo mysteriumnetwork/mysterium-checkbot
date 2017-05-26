@@ -12,31 +12,27 @@ Slack Bot that checks Mysterium node availability upon user requests.
 
 ### Getting Started
 
-The bot requires the accompanying `mysterium-client` Docker image to be built prior to running:
+The bot requires building the two Docker images prior to running:
 
-> `docker build --tag mysterium-client -f Dockerfile-client .`
+> `docker build --tag mysterium-client -f Dockerfile-client .`  
+> `docker build --tag mysterium-checkbot -f Dockerfile-bot .`
 
-Once that image is built, you must first configure the bot (see below section) using the `.env` file (see `.env.example` as a template).
+Once the images are built, you can run the `mysterium-checkbot` image.  
+**You MUST map `/var/run/docker.sock` to the `mysterium-checkbot` container!**
 
-After you have configured the bot, you can run it:
+    docker run -d \  
+      -v /var/run/docker.sock:/var/run/docker.sock \  
+      -e SLACK_BOT_TOKEN=xxx \  
+      --name mysterium-checkbot \  
+      mysterium-checkbot  
 
-> `npm install`
+### Environment Variables
 
-Then
-
-> `npm start` (development)  
-*or*  
-> `npm run production`  
-
-### Configuration
-
-The `.env` file has several important parameters:
-
-> `SLACK_BOT_TOKEN` - The API token for the Slack bot  
-> `SLACK_BOT_CHANNEL` - Comma-seperated values of channel names to monitor for requests  
-> `CLIENT_IMAGE_NAME` - Name of the docker image to launch (default should be `mysterium-client`)  
-> `TIMEOUT_SECONDS` - Number of seconds before an internet check will timeout (default should be `30`)
+> `SLACK_BOT_TOKEN` - (required) The API token for the Slack bot  
+> `SLACK_BOT_CHANNELS` - (optional) Comma-seperated values of channel names to monitor for requests  (default is `*` for all channels)  
+> `CLIENT_IMAGE_NAME` - (optional) Name of the docker image to launch (default should be `mysterium-client`)  
+> `TIMEOUT_SECONDS` - (optional) Number of seconds before an internet check will timeout (default should be `30`)
 
 ### Methodology
 
-In order to provide as much isolation and concurrent checking of nodes, each `!check <node>` request is performed in a separate docker container. The resulting exit code and/or WAN IP address are read from the logs. The success or failure is reported to the user, and WAN IP addresses have their last two octets redacted for security.
+In order to provide as much isolation and concurrent checking of nodes, each `!check <nodes...>` request is performed in a separate docker container. The resulting exit code and/or WAN IP address are read from the logs. The success or failure is reported to the user, and WAN IP addresses have their last two octets redacted for security.
